@@ -1,0 +1,183 @@
+package edu.harvard.bwh.jonaslab.broadside;
+
+import com.google.gson.Gson;
+
+import java.io.FileReader;
+import java.io.IOException;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
+import java.util.*;
+import java.util.logging.Logger;
+import java.util.stream.Collectors;
+
+class NamedPolygon {
+    String name;
+    private String wkt;
+}
+
+class SlideSpecification {
+    NamedPolygon[] polygons;
+    private String[] focusPoints;
+    private Path protocolPath;
+    private String objName;
+}
+
+public class Slide {
+    public final Path path;
+    public final String name;
+    public final List<Scene> scenes;
+    public final Path jsonPath;
+    public final Path illumDir;
+    public final Path unmixMosaicsDir;
+    public final String summary;
+    public final String nextflowSummary;
+
+    public Slide(Path path) {
+        this(path, null, null);
+    }
+
+    public Slide(Path path, Set<String> selectedSceneNames, Set<String> selectedRoundNames) {
+        Logger log = Logger.getLogger(getClass().getName());
+
+        // validate inputs
+        Path jsonPath = path.resolve(".slide.json");
+        if (!Files.exists(path) | !Files.exists(jsonPath)) {
+            throw new InvalidPathException(path.toString(), "Path is not a valid slide");
+        }
+        String name = path.getFileName().toString();
+
+        // get scene names
+        Set<String> sceneNamesFromJson = getSceneNamesFromJson(jsonPath);
+        Set<String> sceneNamesFromFileSystem = getSceneNamesFromFileSystem(path);
+        if (!Objects.equals(sceneNamesFromJson, sceneNamesFromFileSystem)) {
+            log.warning("Mismatch between scenes in slide.json and scenes on filesystem; using filesystem");
+        }
+        List<String> allSceneNames = sceneNamesFromFileSystem.stream().sorted().collect(Collectors.toUnmodifiableList());
+
+        // validate scene names
+        Set<String> foundSceneNames = new HashSet<>(sceneNamesFromFileSystem);
+        if (selectedSceneNames != null) {
+            // make copy since set operations in java are in-place
+            Set<String> extraNames = new HashSet<>(selectedSceneNames);
+            extraNames.removeAll(sceneNamesFromFileSystem);
+            if (extraNames.size() != 0) {
+                log.warning(String.format("Unrecognized scene names: %s", extraNames));
+            }
+            foundSceneNames.retainAll(selectedSceneNames);
+        }
+
+        // create scene objects for selected scene names
+        List<Scene> scenes = foundSceneNames
+                .stream()
+                .map(sceneName -> new Scene(path.resolve(sceneName), selectedRoundNames))
+                .sorted(Comparator.comparing(scene -> scene.name))
+                .collect(Collectors.toUnmodifiableList());
+
+        // compute scene and round names
+        List<String> sceneNames = scenes
+                .stream()
+                .map(it -> it.name)
+                .sorted()
+                .collect(Collectors.toUnmodifiableList());
+        List<String> roundNames = scenes
+                .stream()
+                .flatMap(scene -> scene.getRoundNames().stream())
+                .distinct()
+                .sorted()
+                .collect(Collectors.toUnmodifiableList());
+
+        // compute summaries
+        String simpleSceneSummaries = scenes
+                .stream()
+                .map(scene -> scene.summary)
+                .collect(Collectors.joining("\n"));
+        String nextflowSummary = "" +
+                "slide:             " + name + "\n" +
+                "location:          " + path + "\n" +
+                "scenes found:      " + allSceneNames + "\n" +
+                "scenes to process: " + sceneNames + "\n" +
+                "rounds to process: " + roundNames + "\n" +
+                simpleSceneSummaries;
+
+        String detailedSceneSummaries = scenes
+                .stream()
+                .map(scene -> scene.detailedSummary)
+                .collect(Collectors.joining("\n"));
+        String summary = "" +
+                "slide:    " + name + "\n" +
+                "location: " + path + "\n" +
+                "scenes:   " + allSceneNames + "\n" +
+                detailedSceneSummaries;
+
+        // assign read-only properties; this class is a dataclass
+        this.path = path;
+        this.name = name;
+        this.jsonPath = jsonPath;
+        this.illumDir = path.resolve(".illumination");
+        this.unmixMosaicsDir = path.resolve(".unmixing").resolve("mosaics");
+        this.scenes = scenes;
+//        this.allSceneNames = allSceneNames;
+//        this.sceneNames = sceneNames;
+//        this.roundNames = roundNames;
+        this.summary = summary;
+        this.nextflowSummary = nextflowSummary;
+    }
+
+    private static Set<String> getSceneNamesFromJson(Path jsonPath) {
+        Gson gson = new Gson();
+        try (FileReader reader = new FileReader(jsonPath.toFile())) {
+            SlideSpecification slideSpec = gson.fromJson(reader, SlideSpecification.class);
+            return Arrays.stream(slideSpec.polygons)
+                    .map(it -> it.name)
+                    .collect(Collectors.toUnmodifiableSet());
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static Set<String> getSceneNamesFromFileSystem(Path slidePath) {
+        HashSet<String> sceneNames = new HashSet<>();
+        try (DirectoryStream<Path> scenePaths = Files.newDirectoryStream(slidePath)) {
+            for (Path scenePath : scenePaths) {
+                Path tilesPath = scenePath.resolve("tiles");
+                if (Files.exists(tilesPath)) {
+                    sceneNames.add(scenePath.getFileName().toString());
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            throw new RuntimeException(e);
+        }
+
+        return sceneNames;
+    }
+
+    public Scene getScene(String name) {
+        for (Scene scene : scenes) {
+            if (Objects.equals(scene.name, name)) {
+                return scene;
+            }
+        }
+        throw new NoSuchElementException(name);
+    }
+
+    public List<String> getSceneNames() {
+        return scenes
+                .stream()
+                .map(it -> it.name)
+                .collect(Collectors.toUnmodifiableList());
+    }
+
+    public List<String> getRoundNames() {
+        List<String> roundNames = new ArrayList<>();
+        for (Scene scene : scenes) {
+            roundNames.addAll(scene.getRoundNames());
+        }
+        Collections.sort(roundNames);
+        return roundNames;
+    }
+}

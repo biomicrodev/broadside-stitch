@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -o errexit
+
+if test "$#" -ne 1; then
+  echo "Unexpected number of arguments"
+  exit 1
+fi
+
+# run `mvn package`; if multiple cli functions are to be packaged, refactor pom.xml file
+
+SCRIPT_DIR="$(dirname "$(realpath "$0")")"
+JAR_PATH=$(realpath "$SCRIPT_DIR/../target/broadside-check-slide-status.jar")
+
+SLIDE_PATH="$1"
+java -jar "$JAR_PATH" "$SLIDE_PATH"

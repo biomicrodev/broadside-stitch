@@ -1,0 +1,8 @@
+name: broadside-stitch-conda-env
+channels:
+  - conda-forge
+dependencies:
+  - "python>=3.8,<3.11"
+  - pip
+  - pip:
+      - "/home/titanium/PycharmProjects/broadside-stitch"
