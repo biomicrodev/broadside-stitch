@@ -25,6 +25,8 @@ class SlideSpecification {
 }
 
 public class Slide {
+    private final Logger log = Logger.getLogger(getClass().getName());
+
     public final Path path;
     public final String name;
     public final List<Scene> scenes;
@@ -39,8 +41,6 @@ public class Slide {
     }
 
     public Slide(Path path, Set<String> selectedSceneNames, Set<String> selectedRoundNames) {
-        Logger log = Logger.getLogger(getClass().getName());
-
         // validate inputs
         Path jsonPath = path.resolve(".slide.json");
         if (!Files.exists(path) | !Files.exists(jsonPath)) {
@@ -179,5 +179,18 @@ public class Slide {
         }
         Collections.sort(roundNames);
         return roundNames;
+    }
+
+    public List<Path> getTilePathsForRound(String roundName) {
+        if (!getRoundNames().contains(roundName)) {
+            log.warning(String.format("No tile paths found for round %s", roundName));
+            return Collections.emptyList();
+        }
+
+        List<Path> tilePaths = new ArrayList<>();
+        for (Scene scene : scenes) {
+            tilePaths.addAll(scene.getTilePathsForRound(roundName));
+        }
+        return tilePaths;
     }
 }
