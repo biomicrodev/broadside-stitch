@@ -38,7 +38,7 @@ opencv-python = "^4.7"
 pandas = "^1.5"
 pillow = "^9.4"
 pint = "^0.20"
-pybasic = { git = "https://github.com/biomicrodev/pybasic.git", branch = "master" }
+pybasic = { git = "https://github.com/biomicrodev/pybasic.git", branch = "master", version = "==0.0.1" }
 scikit-image = "^0.19"
 scipy = "^1.8"
 structlog = "^22.3"
@@ -47,6 +47,7 @@ zarr = "^2.14"
 
 [tool.poetry.group.dev.dependencies]
 black = { version = "^23.1", extras = ["d"] }
+py-spy = "^0.3.14"
 
 [tool.poetry.scripts]
 assess-illum-profiles = "broadside.scripts.assess_illum_profiles:run"
