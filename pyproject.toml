@@ -38,7 +38,7 @@ opencv-python = "^4.7"
 pandas = "^1.5"
 pillow = "^9.4"
 pint = "^0.20"
-pybasic = { git = "https://github.com/biomicrodev/pybasic.git", branch = "master", version = "==0.0.1" }
+pybasic = { git = "https://github.com/biomicrodev/pybasic.git", branch = "master", rev = "84737b7" }
 scikit-image = "^0.19"
 scipy = "^1.8"
 structlog = "^22.3"
